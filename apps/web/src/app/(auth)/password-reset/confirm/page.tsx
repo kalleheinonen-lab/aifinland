@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { z } from "zod";
+import Link from "next/link";
 import { confirmPasswordReset, ApiRequestError } from "@/lib/api-client";
 
 const passwordSchema = z
@@ -99,12 +100,12 @@ function PasswordResetConfirmPageContent() {
           </svg>
           <span className="text-[14px]">No reset token provided. Please request a new password reset link.</span>
         </div>
-        <a
+        <Link
           href="/password-reset"
           className="text-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Request New Link
-        </a>
+        </Link>
       </div>
     );
   }

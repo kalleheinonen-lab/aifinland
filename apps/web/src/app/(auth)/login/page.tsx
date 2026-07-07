@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login, ApiRequestError } from "@/lib/api-client";
+import Link from "next/link";
 import { useAuthStore } from "@/lib/auth-store";
 
 export default function LoginPage() {
@@ -130,18 +131,18 @@ export default function LoginPage() {
       </form>
 
       <div className="flex flex-col gap-sm text-center text-[12px] font-medium">
-        <a
+        <Link
           href="/register"
           className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Create an account
-        </a>
-        <a
+        </Link>
+        <Link
           href="/password-reset"
           className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Forgot password?
-        </a>
+        </Link>
       </div>
     </div>
   );

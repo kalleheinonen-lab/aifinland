@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { requestPasswordReset, ApiRequestError } from "@/lib/api-client";
 
 export default function PasswordResetPage() {
@@ -49,12 +50,12 @@ export default function PasswordResetPage() {
             If an account exists with that email, you&apos;ll receive a password reset link.
           </span>
         </div>
-        <a
+        <Link
           href="/login"
           className="text-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Back to Sign In
-        </a>
+        </Link>
       </div>
     );
   }
@@ -136,12 +137,12 @@ export default function PasswordResetPage() {
         </button>
       </form>
 
-      <a
+      <Link
         href="/login"
         className="text-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
       >
         Back to Sign In
-      </a>
+      </Link>
     </div>
   );
 }

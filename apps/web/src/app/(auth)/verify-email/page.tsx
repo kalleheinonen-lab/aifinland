@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { verifyEmail, resendVerificationEmail, ApiRequestError } from "@/lib/api-client";
 
 type VerifyState = "loading" | "success" | "error";
@@ -101,12 +102,12 @@ function VerifyEmailPageContent() {
           </svg>
           <span className="text-[14px]">Your email has been verified successfully.</span>
         </div>
-        <a
+        <Link
           href="/login"
           className="text-center text-[14px] font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Continue to Sign In
-        </a>
+        </Link>
       </div>
     );
   }

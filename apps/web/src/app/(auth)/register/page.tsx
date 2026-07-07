@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { z } from "zod";
+import Link from "next/link";
 import { register, ApiRequestError } from "@/lib/api-client";
 
 const passwordSchema = z
@@ -103,12 +104,12 @@ export default function RegisterPage() {
             We&apos;ve sent a verification link to your email. Please check your inbox.
           </span>
         </div>
-        <a
+        <Link
           href="/login"
           className="text-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Back to Sign In
-        </a>
+        </Link>
       </div>
     );
   }
@@ -247,12 +248,12 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      <a
+      <Link
         href="/login"
         className="text-center text-[12px] font-medium text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary"
       >
         Already have an account? Sign In
-      </a>
+      </Link>
     </div>
   );
 }
