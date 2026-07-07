@@ -247,3 +247,63 @@ def test_ac9_entity_metadata_mixin_column_names() -> None:
     assert "createdBy" not in column_keys
     assert "updatedBy" not in column_keys
     assert "deletedAt" not in column_keys
+
+
+def test_ac9_entity_metadata_mixin_no_duplicate_fk_constraint_names() -> None:
+    """AC-9: Two models using EntityMetadataMixin must not produce duplicate FK constraint names.
+
+    The duplicate FK constraint name bug only manifests when a SECOND model uses
+    the mixin. Without the %(table_name)s naming convention in Base.metadata, both
+    models would register the same FK constraint names (e.g. 'fk_organization_id')
+    and fail at DDL time with a duplicate-name error.
+
+    This test verifies that the naming convention fix works correctly by confirming:
+    1. Both models can be defined without raising an error.
+    2. All FK constraint names across both tables are unique.
+    3. Each FK constraint name is scoped to its own table (contains the table name).
+    """
+    from app.db.base import Base
+    from app.db.mixins import EntityMetadataMixin
+
+    # Define two concrete models that both use EntityMetadataMixin.
+    # If the naming convention is missing or broken, registering the second
+    # model would raise an InvalidRequestError about duplicate constraint names.
+    class SampleModel1(EntityMetadataMixin, Base):
+        __tablename__ = "sample_model_test_1"
+
+    class SampleModel2(EntityMetadataMixin, Base):
+        __tablename__ = "sample_model_test_2"
+
+    # AC-9: collect all FK constraint names from both tables
+    def fk_constraint_names(table: object) -> set[str]:
+        from sqlalchemy import Table
+
+        assert isinstance(table, Table)
+        return {
+            fk.constraint.name
+            for col in table.columns
+            for fk in col.foreign_keys
+            if fk.constraint is not None and fk.constraint.name is not None
+        }
+
+    names1 = fk_constraint_names(SampleModel1.__table__)
+    names2 = fk_constraint_names(SampleModel2.__table__)
+
+    # AC-9: expect no overlap between the two sets of FK constraint names
+    overlap = names1 & names2
+    assert not overlap, (
+        f"Duplicate FK constraint names detected across two mixin models: {overlap!r}. "
+        "The naming convention fix (%(table_name)s interpolation) is not working."
+    )
+
+    # AC-9: each FK constraint name must reference its own table name
+    for name in names1:
+        assert "sample_model_test_1" in name, (
+            f"FK constraint '{name}' on sample_model_test_1 does not include the table name. "
+            "Expected %(table_name)s interpolation."
+        )
+    for name in names2:
+        assert "sample_model_test_2" in name, (
+            f"FK constraint '{name}' on sample_model_test_2 does not include the table name. "
+            "Expected %(table_name)s interpolation."
+        )
