@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-finland-config
+  namespace: ai-finland-app
+  labels:
+    app.kubernetes.io/part-of: ai-finland
+data:
+  # Values are placeholders to be filled by CI/CD from Terraform outputs.
+  # terraform output -json provides: pg_host, pg_port, valkey_host, valkey_port, object_storage_endpoint
+  DATABASE_HOST: "PLACEHOLDER_FROM_TERRAFORM_OUTPUT_pg_host"
+  DATABASE_PORT: "PLACEHOLDER_FROM_TERRAFORM_OUTPUT_pg_port"
+  VALKEY_HOST: "PLACEHOLDER_FROM_TERRAFORM_OUTPUT_valkey_host"
+  VALKEY_PORT: "PLACEHOLDER_FROM_TERRAFORM_OUTPUT_valkey_port"
+  OBJECT_STORAGE_ENDPOINT: "PLACEHOLDER_FROM_TERRAFORM_OUTPUT_object_storage_endpoint"
+  ENVIRONMENT: "dev"

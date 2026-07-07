@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-finland-app
+  labels:
+    app.kubernetes.io/part-of: ai-finland
+    app.kubernetes.io/managed-by: ci-cd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-finland-secrets
+  labels:
+    app.kubernetes.io/part-of: ai-finland
+    app.kubernetes.io/managed-by: ci-cd
