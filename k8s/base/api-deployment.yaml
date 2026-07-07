@@ -23,33 +23,58 @@ spec:
         openbao.io/agent-inject: "true"
         openbao.io/role: "api"
         openbao.io/agent-inject-secret-db-creds: "secret/data/ai-finland/db-creds"
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
     spec:
       serviceAccountName: api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: db-credentials
+          secret:
+            secretName: ai-finland-db-credentials
+            defaultMode: 0400
+        - name: valkey-credentials
+          secret:
+            secretName: ai-finland-valkey-credentials
+            defaultMode: 0400
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: api
-          image: PLACEHOLDER_API_IMAGE:latest
+          # Image tag and digest are replaced by CI/CD at deploy time.
+          # Format: PLACEHOLDER_API_IMAGE@sha256:<digest>
+          image: PLACEHOLDER_API_IMAGE@sha256:0000000000000000000000000000000000000000000000000000000000000000
           ports:
             - containerPort: 8000
               protocol: TCP
           envFrom:
             - configMapRef:
                 name: ai-finland-config
-          env:
-            - name: DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ai-finland-db-credentials
-                  key: password
-            - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ai-finland-db-credentials
-                  key: username
-            - name: VALKEY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ai-finland-valkey-credentials
-                  key: password
+          volumeMounts:
+            - name: db-credentials
+              mountPath: /etc/secrets/db-credentials
+              readOnly: true
+            - name: valkey-credentials
+              mountPath: /etc/secrets/valkey-credentials
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: "256Mi"

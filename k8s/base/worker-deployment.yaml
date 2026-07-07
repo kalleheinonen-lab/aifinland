@@ -23,30 +23,55 @@ spec:
         openbao.io/agent-inject: "true"
         openbao.io/role: "worker"
         openbao.io/agent-inject-secret-db-creds: "secret/data/ai-finland/db-creds"
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
     spec:
       serviceAccountName: worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: db-credentials
+          secret:
+            secretName: ai-finland-db-credentials
+            defaultMode: 0400
+        - name: valkey-credentials
+          secret:
+            secretName: ai-finland-valkey-credentials
+            defaultMode: 0400
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: worker
-          image: PLACEHOLDER_WORKER_IMAGE:latest
+          # Image tag and digest are replaced by CI/CD at deploy time.
+          # Format: PLACEHOLDER_WORKER_IMAGE@sha256:<digest>
+          image: PLACEHOLDER_WORKER_IMAGE@sha256:0000000000000000000000000000000000000000000000000000000000000000
           envFrom:
             - configMapRef:
                 name: ai-finland-config
-          env:
-            - name: DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ai-finland-db-credentials
-                  key: password
-            - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ai-finland-db-credentials
-                  key: username
-            - name: VALKEY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ai-finland-valkey-credentials
-                  key: password
+          volumeMounts:
+            - name: db-credentials
+              mountPath: /etc/secrets/db-credentials
+              readOnly: true
+            - name: valkey-credentials
+              mountPath: /etc/secrets/valkey-credentials
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: "256Mi"
@@ -54,3 +79,23 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "test -f /tmp/worker-ready || exit 1"
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "test -f /tmp/worker-ready || exit 1"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
