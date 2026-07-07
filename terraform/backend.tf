@@ -10,6 +10,10 @@ terraform {
 
     # UpCloud Managed Object Storage is S3-standard-compatible, not AWS.
     # Skip all AWS-specific preflight checks and use path-style URLs.
+    # Native S3 lockfile -- replaces DynamoDB, which UpCloud does not have.
+    # Requires Terraform >= 1.10.
+    use_lockfile = true
+
     skip_requesting_account_id  = true
     skip_credentials_validation = true
     skip_metadata_api_check     = true
