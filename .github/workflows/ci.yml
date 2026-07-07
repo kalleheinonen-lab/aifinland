@@ -1,4 +1,7 @@
 name: CI
+# AC-11 [e2e]: WHEN ci.yml runs against the scaffolded monorepo THE SYSTEM SHALL
+# complete all quality jobs (lint, typecheck, test, docker-verify, terraform-validate)
+# end-to-end with nothing mocked.
 
 on:
   pull_request:
