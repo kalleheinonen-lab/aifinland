@@ -6,7 +6,7 @@
 # maintenance_dow/time: Saturday 03:00 UTC to minimise user impact.
 # -----------------------------------------------------------------------------
 resource "upcloud_loadbalancer" "main" {
-  name              = "ai-finland-lb-dev"
+  name              = "${local.name_prefix}-lb"
   plan              = "production-small"
   zone              = var.zone
   configured_status = "started"

@@ -6,7 +6,7 @@
 # HPA handles scaling after initial node_count is established.
 # -----------------------------------------------------------------------------
 resource "upcloud_kubernetes_cluster" "main" {
-  name    = "ai-finland-dev"
+  name    = local.name_prefix
   zone    = var.zone
   network = upcloud_network.app.id
   plan    = "production-small"
