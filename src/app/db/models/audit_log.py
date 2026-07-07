@@ -17,7 +17,8 @@ class AuditLog(Base):
     """Audit log entity.
 
     Append-only: no updated_at, no deleted_at, no soft delete.
-    The application role may INSERT but MUST NOT UPDATE or DELETE.
+    The application role may SELECT but MUST NOT INSERT, UPDATE, or DELETE.
+    Writes are performed by the BYPASSRLS migration/service role only.
     """
 
     __tablename__ = "audit_logs"
