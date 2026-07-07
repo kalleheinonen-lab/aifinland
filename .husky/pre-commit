@@ -1,0 +1,2 @@
+cd apps/web && pnpm run lint
+cd apps/api && ruff check .
