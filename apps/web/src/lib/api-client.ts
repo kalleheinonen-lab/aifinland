@@ -71,9 +71,39 @@ export interface LoginResponse {
     sub: string;
     org: string;
     roles: string[];
+    displayName: string;
+    orgName: string;
+    mfaEnabled: boolean;
   };
   mfaRequired?: boolean;
   mfaToken?: string;
+}
+
+export interface MfaSetupResponse {
+  provisioningUri: string;
+  secret: string;
+}
+
+export interface MfaSetupConfirmResponse {
+  backupCodes: string[];
+}
+
+export function getMfaSetup(accessToken: string): Promise<MfaSetupResponse> {
+  return request("/v1/auth/mfa/setup", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export function confirmMfaSetup(
+  accessToken: string,
+  code: string
+): Promise<MfaSetupConfirmResponse> {
+  return request("/v1/auth/mfa/setup/confirm", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ code }),
+  });
 }
 
 export interface MfaVerifyInput {

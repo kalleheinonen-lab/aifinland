@@ -5,6 +5,9 @@ interface AuthUser {
   sub: string;
   org: string;
   roles: string[];
+  displayName: string;
+  orgName: string;
+  mfaEnabled: boolean;
 }
 
 interface AuthState {
