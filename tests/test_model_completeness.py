@@ -251,3 +251,48 @@ def test_ac8_jsonb_columns_exist(model_cls: type, jsonb_cols: list[str]) -> None
         assert isinstance(col.type, JSONB), (
             f"{model_cls.__name__}.{col_name} is {type(col.type).__name__}, expected JSONB"
         )
+
+
+# ---------------------------------------------------------------------------
+# AC-9: FK constraint names are unique across all models (naming_convention fix)
+# ---------------------------------------------------------------------------
+
+
+def test_ac9_fk_constraint_names_are_unique_across_mixin_models() -> None:
+    """AC-9: FK constraint names must be unique across all EntityMetadataMixin models.
+
+    Without MetaData(naming_convention=...) on Base, %(table_name)s in
+    ForeignKey(name=...) is NOT interpolated -- all models share the same
+    three literal constraint names, causing duplicate-name DDL errors.
+    This test verifies that the naming convention is active and generates
+    distinct, table-specific names.
+
+    # kills: missing naming_convention on Base.metadata, literal %(table_name)s
+    #        not interpolated, duplicate FK constraint names across tables
+    """
+    from sqlalchemy import ForeignKeyConstraint
+
+    # Collect all FK constraint names from all EntityMetadataMixin models
+    all_fk_names: list[str] = []
+    for model_cls in _ENTITY_METADATA_MODELS:
+        for constraint in model_cls.__table__.constraints:
+            if isinstance(constraint, ForeignKeyConstraint) and constraint.name:
+                all_fk_names.append(constraint.name)
+
+    # AC-9: expect no duplicate FK constraint names across all models
+    assert len(all_fk_names) == len(set(all_fk_names)), (
+        f"Duplicate FK constraint names found: "
+        f"{[n for n in all_fk_names if all_fk_names.count(n) > 1]}"
+    )
+
+    # AC-9: expect no literal %(table_name)s token (naming_convention must interpolate)
+    for name in all_fk_names:
+        assert "%(table_name)s" not in name, (
+            f"FK constraint name {name!r} contains un-interpolated %(table_name)s token; "
+            "MetaData naming_convention is not configured correctly on Base"
+        )
+
+    # AC-9: expect at least one FK constraint per mixin model (sanity check)
+    assert len(all_fk_names) >= len(_ENTITY_METADATA_MODELS), (
+        "Expected at least one FK constraint per EntityMetadataMixin model"
+    )

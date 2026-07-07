@@ -41,19 +41,19 @@ class EntityMetadataMixin:
     )
 
     created_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", use_alter=True, name="fk_%(table_name)s_created_by_user"),
+        ForeignKey("users.id", use_alter=True),
         nullable=True,
         default=None,
     )
 
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", use_alter=True, name="fk_%(table_name)s_updated_by_user"),
+        ForeignKey("users.id", use_alter=True),
         nullable=True,
         default=None,
     )
 
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("organizations.id", use_alter=True, name="fk_%(table_name)s_organization"),
+        ForeignKey("organizations.id", use_alter=True),
         nullable=True,
         default=None,
     )

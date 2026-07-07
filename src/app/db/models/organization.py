@@ -82,6 +82,6 @@ class Organization(Base):
     __table_args__ = (
         CheckConstraint(
             "ai_maturity_level IS NULL OR (ai_maturity_level >= 1 AND ai_maturity_level <= 5)",
-            name="ck_organizations_ai_maturity_level_range",
+            name="ai_maturity_level_range",
         ),
     )
