@@ -10,3 +10,6 @@ sqlalchemy[asyncio]>=2.0.51
 asyncpg>=0.31.0
 alembic>=1.18.5
 aiosqlite>=0.22.0
+PyJWT[cryptography]>=2.9.0
+bcrypt>=4.2.0
+valkey>=6.0.0
