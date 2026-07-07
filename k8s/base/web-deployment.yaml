@@ -19,11 +19,28 @@ spec:
         app.kubernetes.io/name: web
         app.kubernetes.io/part-of: ai-finland
         app.kubernetes.io/component: frontend
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
     spec:
       serviceAccountName: web
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: nextjs-cache
+          emptyDir: {}
       containers:
         - name: web
-          image: PLACEHOLDER_WEB_IMAGE:latest
+          # Image tag and digest are replaced by CI/CD at deploy time.
+          # Format: PLACEHOLDER_WEB_IMAGE@sha256:<digest>
+          image: PLACEHOLDER_WEB_IMAGE@sha256:0000000000000000000000000000000000000000000000000000000000000000
           ports:
             - containerPort: 3000
               protocol: TCP
@@ -33,6 +50,22 @@ spec:
                 configMapKeyRef:
                   name: ai-finland-config
                   key: ENVIRONMENT
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: nextjs-cache
+              mountPath: /app/.next/cache
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: "128Mi"
