@@ -30,7 +30,7 @@ resource "upcloud_kubernetes_node_group" "workers" {
   cluster    = upcloud_kubernetes_cluster.main.id
   name       = "workers"
   plan       = "4xCPU-8GB"
-  node_count = 3
+  node_count = var.worker_node_count
 
   # Best-effort spread across physical hosts for resilience.
   anti_affinity = true

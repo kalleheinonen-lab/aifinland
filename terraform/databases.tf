@@ -6,10 +6,12 @@
 # DR target zone: de-fra1 (future cross-region replication).
 # -----------------------------------------------------------------------------
 resource "upcloud_managed_database_postgresql" "main" {
-  name  = "ai-finland-pg-dev"
-  title = "ai-finland-pg-dev"
-  plan  = "2x2xCPU-4GB-50GB"
+  name  = "ai-finland-pg-${var.environment}"
+  title = "ai-finland-pg-${var.environment}"
+  plan  = var.pg_plan
   zone  = var.zone
+
+  termination_protection = var.environment == "prod" ? true : false
 
   maintenance_window_dow  = "sunday"
   maintenance_window_time = "03:00:00"
@@ -35,7 +37,9 @@ resource "upcloud_managed_database_postgresql" "main" {
     }
   }
 
-  labels = var.tags
+  labels = merge(var.tags, {
+    Environment = var.environment
+  })
 }
 
 # -----------------------------------------------------------------------------
@@ -44,9 +48,9 @@ resource "upcloud_managed_database_postgresql" "main" {
 # Backup is provider-managed.
 # -----------------------------------------------------------------------------
 resource "upcloud_managed_database_valkey" "main" {
-  name  = "ai-finland-valkey-dev"
-  title = "ai-finland-valkey-dev"
-  plan  = "1x1xCPU-2GB"
+  name  = "ai-finland-valkey-${var.environment}"
+  title = "ai-finland-valkey-${var.environment}"
+  plan  = var.valkey_plan
   zone  = var.zone
 
   # Attach to the data-tier private network -- no public IP.
@@ -61,5 +65,7 @@ resource "upcloud_managed_database_valkey" "main" {
     public_access = false
   }
 
-  labels = var.tags
+  labels = merge(var.tags, {
+    Environment = var.environment
+  })
 }
