@@ -32,6 +32,12 @@ if os.environ.get("CORS_ALLOWED_ORIGINS"):
 # Register routers
 app.include_router(auth_router)
 
+# Conditionally register test-only helpers (NEVER in production)
+if os.environ.get("APP_ENV") == "test":
+    from app.routers.test_helpers import router as test_helpers_router
+
+    app.include_router(test_helpers_router)
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:

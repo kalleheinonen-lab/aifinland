@@ -69,15 +69,44 @@ def _error_response(
 # These are overridden in tests to inject mocks.
 
 
-def _get_auth_service():  # type: ignore[no-untyped-def]
-    """Get AuthService instance. Overridden in tests."""
-    # In production, this would be properly wired with DI
-    raise NotImplementedError("AuthService requires proper dependency injection setup")
+async def _get_db_session():  # type: ignore[no-untyped-def]
+    """Yield an async database session for the request lifetime."""
+    from app.db import create_engine, create_session_factory
+
+    engine = create_engine()
+    session_factory = create_session_factory(engine)
+    async with session_factory() as session:
+        async with session.begin():
+            yield session
 
 
-def _get_mfa_service():  # type: ignore[no-untyped-def]
-    """Get MFAService instance. Overridden in tests."""
-    raise NotImplementedError("MFAService requires proper dependency injection setup")
+async def _get_auth_service(session=Depends(_get_db_session)):  # type: ignore[no-untyped-def]
+    """Get AuthService instance wired with real DB and Valkey connections."""
+    from app.repositories.user_repository import UserRepository
+    from app.services.auth_service import AuthService
+    from app.services.rate_limit_service import RateLimitService
+    from app.services.session_service import SessionService
+    from app.services.token_service import TokenService
+
+    user_repo = UserRepository(session)
+    token_service = TokenService()
+    session_service = SessionService()
+    rate_limit_service = RateLimitService()
+    return AuthService(
+        user_repo=user_repo,
+        token_service=token_service,
+        session_service=session_service,
+        rate_limit_service=rate_limit_service,
+    )
+
+
+async def _get_mfa_service(session=Depends(_get_db_session)):  # type: ignore[no-untyped-def]
+    """Get MFAService instance wired with real DB connection."""
+    from app.repositories.user_repository import UserRepository
+    from app.services.mfa_service import MFAService
+
+    user_repo = UserRepository(session)
+    return MFAService(user_repo=user_repo)
 
 
 def _get_token_service():  # type: ignore[no-untyped-def]
