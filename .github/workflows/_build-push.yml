@@ -6,11 +6,15 @@ on:
       app:
         required: true
         type: string
-        description: "Application name (api or web)"
+        description: "Application name (api, web, or worker)"
       dockerfile:
         required: true
         type: string
         description: "Path to Dockerfile relative to repo root"
+    outputs:
+      image:
+        description: "Fully-qualified image reference with digest (registry/app@sha256:...)"
+        value: ${{ jobs.build-push.outputs.image }}
 
 permissions:
   contents: read
@@ -20,6 +24,8 @@ jobs:
     name: Build & Push ${{ inputs.app }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      image: ${{ steps.digest.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,3 +48,10 @@ jobs:
         run: |
           docker push ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:${{ github.sha }}
           docker push ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:latest
+
+      - name: Capture image digest
+        id: digest
+        run: |
+          IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' \
+            ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:${{ github.sha }})
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"

@@ -7,6 +7,18 @@ on:
         required: true
         type: string
         description: "Target environment (dev, stg, prod)"
+      api_image:
+        required: true
+        type: string
+        description: "Fully-qualified API image reference with digest"
+      web_image:
+        required: true
+        type: string
+        description: "Fully-qualified web image reference with digest"
+      worker_image:
+        required: true
+        type: string
+        description: "Fully-qualified worker image reference with digest"
 
 permissions:
   contents: read
@@ -25,6 +37,16 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.UKS_KUBECONFIG }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
+
+      - name: Substitute image placeholders
+        run: |
+          sed -i \
+            -e 's|PLACEHOLDER_API_IMAGE@sha256:[0-9a-f]*|${{ inputs.api_image }}|g' \
+            -e 's|PLACEHOLDER_WEB_IMAGE@sha256:[0-9a-f]*|${{ inputs.web_image }}|g' \
+            -e 's|PLACEHOLDER_WORKER_IMAGE@sha256:[0-9a-f]*|${{ inputs.worker_image }}|g' \
+            k8s/base/api-deployment.yaml \
+            k8s/base/web-deployment.yaml \
+            k8s/base/worker-deployment.yaml
 
       - name: Apply Kubernetes manifests (base)
         env:
@@ -55,3 +77,4 @@ jobs:
             --image=busybox:1.36 \
             -n ai-finland-app \
             -- wget -qO- --timeout=10 "http://${API_IP}:8000/health"
+

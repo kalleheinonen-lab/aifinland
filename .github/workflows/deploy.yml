@@ -31,10 +31,22 @@ jobs:
       dockerfile: apps/web/Dockerfile
     secrets: inherit
 
+  build-worker:
+    name: Build & Push Worker
+    uses: ./.github/workflows/_build-push.yml
+    with:
+      app: worker
+      dockerfile: apps/worker/Dockerfile
+    secrets: inherit
+
   deploy-dev:
     name: Deploy to Dev
-    needs: [build-api, build-web]
+    needs: [build-api, build-web, build-worker]
     uses: ./.github/workflows/_deploy.yml
     with:
       environment: dev
+      api_image: ${{ needs.build-api.outputs.image }}
+      web_image: ${{ needs.build-web.outputs.image }}
+      worker_image: ${{ needs.build-worker.outputs.image }}
     secrets: inherit
+
