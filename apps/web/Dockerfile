@@ -32,6 +32,7 @@ RUN addgroup -g 1001 -S appuser && adduser -S appuser -u 1001
 
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./.next/static
+COPY --from=build /app/apps/web/public ./public
 
 USER appuser
 

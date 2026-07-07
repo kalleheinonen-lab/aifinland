@@ -1,0 +1,13 @@
+# Exclude large/sensitive directories from Docker build context.
+# NOTE: When building with repo root as context (docker build -f apps/web/Dockerfile .),
+# Docker resolves .dockerignore from the build context root, not this file.
+# The effective per-Dockerfile ignore file for BuildKit is apps/web/Dockerfile.dockerignore.
+# This file applies when the build context is apps/web/ directly.
+node_modules
+.next
+.git
+.env*
+coverage
+dist
+*.log
+.DS_Store
