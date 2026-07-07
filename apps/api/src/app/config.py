@@ -33,3 +33,17 @@ def get_valkey_url() -> str:
     if not url:
         raise ConfigError("VALKEY_URL environment variable is required but not set.")
     return url
+
+
+def get_mfa_encryption_key() -> str:
+    """Get Fernet encryption key for MFA secrets from environment.
+
+    The key must be a URL-safe base64-encoded 32-byte value, as produced
+    by Fernet.generate_key().
+    """
+    key = os.environ.get("MFA_ENCRYPTION_KEY")
+    if not key:
+        raise ConfigError(
+            "MFA_ENCRYPTION_KEY environment variable is required but not set."
+        )
+    return key
