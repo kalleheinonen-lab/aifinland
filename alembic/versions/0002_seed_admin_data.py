@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import sqlalchemy as sa
 from alembic import op
 
 from app.db.seed import AI_FINLAND_ORG_ID, SUPER_ADMIN_MEMBERSHIP_ID, SUPER_ADMIN_USER_ID
@@ -59,84 +60,91 @@ def upgrade() -> None:
     # visibility is NULL: 'platform_wide' is not a valid visibility enum
     # value; the platform-wide nature is expressed via the SuperAdmin role.
     op.execute(
-        f"""
-        INSERT INTO organizations (
-            id,
-            name,
-            organization_type,
-            status,
-            visibility,
-            created_at,
-            updated_at
-        ) VALUES (
-            '{AI_FINLAND_ORG_ID!s}',
-            'AI Finland',
-            'Other',
-            'active',
-            NULL,
-            now(),
-            now()
-        )
-        ON CONFLICT (id) DO NOTHING
-        """
+        sa.text("""
+            INSERT INTO organizations (
+                id,
+                name,
+                organization_type,
+                status,
+                visibility,
+                created_at,
+                updated_at
+            ) VALUES (
+                :id,
+                'AI Finland',
+                'Other',
+                'active',
+                NULL,
+                now(),
+                now()
+            )
+            ON CONFLICT (id) DO NOTHING
+        """).bindparams(id=str(AI_FINLAND_ORG_ID))
     )
 
     # ------------------------------------------------------------------
     # 2. Super Admin user (platform-scoped, organization_id=NULL)
     # ------------------------------------------------------------------
     op.execute(
-        f"""
-        INSERT INTO users (
-            id,
-            email,
-            display_name,
-            password_hash,
-            status,
-            force_password_reset,
-            mfa_enabled,
-            organization_id,
-            created_at,
-            updated_at
-        ) VALUES (
-            '{SUPER_ADMIN_USER_ID!s}',
-            'kalle@aifinland.fi',
-            'Kalle Admin',
-            '{_SUPER_ADMIN_PASSWORD_HASH}',
-            'Active',
-            TRUE,
-            FALSE,
-            NULL,
-            now(),
-            now()
+        sa.text("""
+            INSERT INTO users (
+                id,
+                email,
+                display_name,
+                password_hash,
+                status,
+                force_password_reset,
+                mfa_enabled,
+                organization_id,
+                created_at,
+                updated_at
+            ) VALUES (
+                :id,
+                'kalle@aifinland.fi',
+                'Kalle Admin',
+                :password_hash,
+                'Active',
+                TRUE,
+                FALSE,
+                NULL,
+                now(),
+                now()
+            )
+            ON CONFLICT (id) DO NOTHING
+        """).bindparams(
+            id=str(SUPER_ADMIN_USER_ID),
+            password_hash=_SUPER_ADMIN_PASSWORD_HASH,
         )
-        ON CONFLICT (id) DO NOTHING
-        """
     )
 
     # ------------------------------------------------------------------
     # 3. Membership: Super Admin <-> AI Finland org
     # ------------------------------------------------------------------
     op.execute(
-        f"""
-        INSERT INTO memberships (
-            id,
-            user_id,
-            organization_id,
-            role,
-            status,
-            created_at,
-            updated_at
-        ) VALUES (
-            '{SUPER_ADMIN_MEMBERSHIP_ID!s}',
-            '{SUPER_ADMIN_USER_ID!s}',
-            '{AI_FINLAND_ORG_ID!s}',
-            'SuperAdmin',
-            'Active',
-            now(),
-            now()
+        sa.text("""
+            INSERT INTO memberships (
+                id,
+                user_id,
+                organization_id,
+                role,
+                status,
+                created_at,
+                updated_at
+            ) VALUES (
+                :id,
+                :user_id,
+                :org_id,
+                'SuperAdmin',
+                'Active',
+                now(),
+                now()
+            )
+            ON CONFLICT (id) DO NOTHING
+        """).bindparams(
+            id=str(SUPER_ADMIN_MEMBERSHIP_ID),
+            user_id=str(SUPER_ADMIN_USER_ID),
+            org_id=str(AI_FINLAND_ORG_ID),
         )
-        ON CONFLICT (id) DO NOTHING
-        """
     )
 
 
@@ -145,15 +153,21 @@ def downgrade() -> None:
 
     # Delete membership first (FK dependency on users and organizations)
     op.execute(
-        f"DELETE FROM memberships WHERE id = '{SUPER_ADMIN_MEMBERSHIP_ID!s}'"
+        sa.text("DELETE FROM memberships WHERE id = :membership_id").bindparams(
+            membership_id=str(SUPER_ADMIN_MEMBERSHIP_ID)
+        )
     )
 
     # Delete Super Admin user
     op.execute(
-        f"DELETE FROM users WHERE id = '{SUPER_ADMIN_USER_ID!s}'"
+        sa.text("DELETE FROM users WHERE id = :user_id").bindparams(
+            user_id=str(SUPER_ADMIN_USER_ID)
+        )
     )
 
     # Delete AI Finland organization
     op.execute(
-        f"DELETE FROM organizations WHERE id = '{AI_FINLAND_ORG_ID!s}'"
+        sa.text("DELETE FROM organizations WHERE id = :org_id").bindparams(
+            org_id=str(AI_FINLAND_ORG_ID)
+        )
     )
