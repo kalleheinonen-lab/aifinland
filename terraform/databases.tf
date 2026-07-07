@@ -28,7 +28,8 @@ resource "upcloud_managed_database_postgresql" "main" {
     version       = "17"
     public_access = false
     timezone      = "Europe/Helsinki"
-    ip_filter     = ["10.0.1.0/24", "10.0.2.0/24"]
+    ip_filter     = ["10.0.1.0/24"]
+    node_count    = 2 # Explicit HA: 2-node cluster; plan alone does not guarantee multi-node provisioning
 
     # PGBouncer connection pooler -- transaction mode for efficient pooling.
     pgbouncer {
