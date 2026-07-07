@@ -12,6 +12,32 @@ permissions:
   pull-requests: read
 
 jobs:
+  # AC-10 [e2e]: WHEN make ci executes against the complete codebase THE SYSTEM
+  # SHALL pass lint, typecheck, all tests, and the RLS coverage gate end-to-end
+  # with nothing mocked.
+  quality-db:
+    name: Quality - DB layer (make ci)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Run make ci (AC-10 - complete codebase verification)
+        run: make ci
+
   quality-api:
     name: Quality - API
     runs-on: ubuntu-latest
