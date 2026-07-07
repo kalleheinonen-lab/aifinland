@@ -1,0 +1,153 @@
+# Helm values for kube-prometheus-stack chart
+# Chart: prometheus-community/kube-prometheus-stack
+# Deploy to ai-finland-observability namespace
+#
+# Install:
+#   helm install prometheus prometheus-community/kube-prometheus-stack \
+#     --namespace ai-finland-observability \
+#     --values prometheus-values.yaml
+
+# Prometheus server configuration
+prometheus:
+  prometheusSpec:
+    # Retention period for metrics data
+    retention: 15d
+
+    # Schedule on observability node group
+    nodeSelector:
+      role: observability
+
+    # Scrape pods with prometheus.io/scrape annotation
+    additionalScrapeConfigs:
+      - job_name: "kubernetes-pods"
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels:
+              - __address__
+              - __meta_kubernetes_pod_annotation_prometheus_io_port
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: app
+
+    # Resource limits
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+    # Storage for metrics
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Gi
+
+# Alertmanager configuration
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      role: observability
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+# Custom alerting rules
+additionalPrometheusRulesMap:
+  ai-finland-alerts:
+    groups:
+      - name: ai-finland-api
+        rules:
+          # API error rate exceeds 5%
+          - alert: APIHighErrorRate
+            expr: |
+              (
+                sum(rate(http_requests_total{job="api", status=~"5.."}[5m]))
+                /
+                sum(rate(http_requests_total{job="api"}[5m]))
+              ) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "API error rate exceeds 5%"
+              description: "API 5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+              runbook_url: "https://docs.ai-finland.internal/runbooks/api-high-error-rate"
+
+          # API p95 latency exceeds 3 seconds
+          - alert: APIHighLatency
+            expr: |
+              histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api"}[5m])) by (le))
+              > 3
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "API p95 latency exceeds 3s"
+              description: "API p95 latency is {{ $value }}s over the last 5 minutes."
+              runbook_url: "https://docs.ai-finland.internal/runbooks/api-high-latency"
+
+      - name: ai-finland-infrastructure
+        rules:
+          # PostgreSQL connection pool utilization exceeds 80%
+          - alert: PostgreSQLConnectionPoolHigh
+            expr: |
+              (pg_stat_activity_count / pg_settings_max_connections) > 0.80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "PostgreSQL connection pool utilization exceeds 80%"
+              description: "PostgreSQL connection pool is at {{ $value | humanizePercentage }} capacity."
+              runbook_url: "https://docs.ai-finland.internal/runbooks/pg-pool-high"
+
+          # Pod restart count exceeds 3 in 5 minutes
+          - alert: PodHighRestartRate
+            expr: |
+              increase(kube_pod_container_status_restarts_total{namespace=~"ai-finland-.*"}[5m]) > 3
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} restarting frequently"
+              description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in 5 minutes."
+              runbook_url: "https://docs.ai-finland.internal/runbooks/pod-crash-loop"
+
+# Grafana is deployed separately with its own values file
+grafana:
+  enabled: false
+
+# Node exporter for infrastructure metrics
+nodeExporter:
+  enabled: true
+
+# kube-state-metrics for Kubernetes object metrics
+kubeStateMetrics:
+  enabled: true

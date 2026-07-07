@@ -1,0 +1,75 @@
+# Helm values for Grafana Tempo chart
+# Chart: grafana/tempo
+# Deploy to ai-finland-observability namespace
+#
+# Install:
+#   helm install tempo grafana/tempo \
+#     --namespace ai-finland-observability \
+#     --values tempo-values.yaml
+
+# Schedule on observability node group
+tempo:
+  server:
+    http_listen_port: 3100
+    grpc_listen_port: 9095
+    log_level: info
+    log_format: json
+
+  # Storage configuration
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  # Retention: 7 days for dev environment
+  compactor:
+    compaction:
+      block_retention: 168h  # 7 days
+
+  # Receivers -- OTel Collector sends traces via OTLP gRPC
+  distributor:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+  # Metrics generator for service graph and span metrics
+  metrics_generator:
+    enabled: true
+    storage:
+      path: /var/tempo/generator/wal
+    registry:
+      external_labels:
+        source: tempo
+        cluster: ai-finland-dev
+    processor:
+      service_graphs:
+        dimensions:
+          - service.namespace
+      span_metrics:
+        dimensions:
+          - service.namespace
+
+# Node selector for observability node group
+nodeSelector:
+  role: observability
+
+# Resource limits
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# Persistent storage
+persistence:
+  enabled: true
+  size: 20Gi

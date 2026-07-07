@@ -1,0 +1,138 @@
+# Helm values for Grafana chart
+# Chart: grafana/grafana
+# Deploy to ai-finland-observability namespace
+#
+# Install:
+#   helm install grafana grafana/grafana \
+#     --namespace ai-finland-observability \
+#     --values grafana-values.yaml
+
+# Schedule on observability node group
+nodeSelector:
+  role: observability
+
+# Admin credentials from OpenBao secret (injected via Kubernetes Secret)
+# The Secret is populated by OpenBao injector from path:
+#   secret/data/ai-finland/observability/grafana
+admin:
+  existingSecret: grafana-admin-credentials
+  userKey: admin-user
+  passwordKey: admin-password
+
+# Resource limits
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Persistent storage for Grafana database
+persistence:
+  enabled: true
+  size: 5Gi
+
+# Datasource provisioning -- references in-cluster service names
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus.ai-finland-observability.svc.cluster.local:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: "15s"
+
+      - name: Loki
+        type: loki
+        url: http://loki.ai-finland-observability.svc.cluster.local:3100
+        access: proxy
+        jsonData:
+          derivedFields:
+            - datasourceUid: tempo
+              matcherRegex: "trace_id=(\\w+)"
+              name: TraceID
+              url: "$${__value.raw}"
+
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        url: http://tempo.ai-finland-observability.svc.cluster.local:3100
+        access: proxy
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            filterByTraceID: true
+          tracesToMetrics:
+            datasourceUid: prometheus
+          serviceMap:
+            datasourceUid: prometheus
+          nodeGraph:
+            enabled: true
+
+# Dashboard provisioning via ConfigMap
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: ai-finland
+        orgId: 1
+        folder: AI Finland
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/ai-finland
+
+dashboardsConfigMaps:
+  ai-finland: grafana-dashboards-ai-finland
+
+# Sidecar for dynamic dashboard loading from ConfigMaps
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: /var/lib/grafana/dashboards
+    searchNamespace: ai-finland-observability
+
+# Grafana configuration
+grafana.ini:
+  server:
+    root_url: "%(protocol)s://%(domain)s/"
+  security:
+    disable_initial_admin_creation: false
+  analytics:
+    reporting_enabled: false
+    check_for_updates: false
+  log:
+    mode: console
+    level: info
+  log.console:
+    format: json
+
+# Dashboard definitions are stored in a ConfigMap.
+# The following dashboards are provisioned:
+#
+# 1. API Golden Signals (rate, errors, duration)
+#    - Request rate by endpoint
+#    - Error rate (4xx/5xx) by endpoint
+#    - Latency percentiles (p50, p95, p99)
+#
+# 2. LUMI Integration Health
+#    - LUMI API latency
+#    - LUMI error rate
+#    - Match quality score distribution
+#
+# 3. Infrastructure
+#    - CPU utilization by node/pod
+#    - Memory utilization by node/pod
+#    - Disk I/O and capacity
+#
+# Dashboard JSON files are managed in a separate ConfigMap resource:
+#   kubectl create configmap grafana-dashboards-ai-finland \
+#     --from-file=dashboards/ \
+#     --namespace=ai-finland-observability
