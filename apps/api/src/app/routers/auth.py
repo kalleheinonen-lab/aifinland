@@ -43,7 +43,9 @@ def _build_meta(request: Request) -> MetaResponse:
     )
 
 
-def _success_response(data: Any, request: Request, status_code: int = 200) -> dict:
+def _success_response(
+    data: Any, request: Request, status_code: int = 200,
+) -> dict[str, Any]:
     """Build a success response envelope."""
     return {
         "data": data,
@@ -54,7 +56,7 @@ def _success_response(data: Any, request: Request, status_code: int = 200) -> di
 
 def _error_response(
     code: str, message: str, request: Request, details: list[str] | None = None
-) -> dict:
+) -> dict[str, Any]:
     """Build an error response envelope."""
     return {
         "data": None,
@@ -69,7 +71,7 @@ def _error_response(
 # These are overridden in tests to inject mocks.
 
 
-async def _get_db_session():  # type: ignore[no-untyped-def]
+async def _get_db_session():  # type: ignore[no-untyped-def]  # noqa: ANN204
     """Yield an async database session for the request lifetime."""
     from app.db import create_engine, create_session_factory
 
@@ -80,7 +82,7 @@ async def _get_db_session():  # type: ignore[no-untyped-def]
             yield session
 
 
-async def _get_auth_service(session=Depends(_get_db_session)):  # type: ignore[no-untyped-def]
+async def _get_auth_service(session: Any = Depends(_get_db_session)) -> Any:
     """Get AuthService instance wired with real DB and Valkey connections."""
     from app.repositories.user_repository import UserRepository
     from app.services.auth_service import AuthService
@@ -100,7 +102,7 @@ async def _get_auth_service(session=Depends(_get_db_session)):  # type: ignore[n
     )
 
 
-async def _get_mfa_service(session=Depends(_get_db_session)):  # type: ignore[no-untyped-def]
+async def _get_mfa_service(session: Any = Depends(_get_db_session)) -> Any:
     """Get MFAService instance wired with real DB connection."""
     from app.repositories.user_repository import UserRepository
     from app.services.mfa_service import MFAService
@@ -109,7 +111,7 @@ async def _get_mfa_service(session=Depends(_get_db_session)):  # type: ignore[no
     return MFAService(user_repo=user_repo)
 
 
-def _get_token_service():  # type: ignore[no-untyped-def]
+def _get_token_service() -> Any:
     """Get TokenService instance. Overridden in tests."""
     from app.services.token_service import TokenService
 
@@ -123,8 +125,8 @@ def _get_token_service():  # type: ignore[no-untyped-def]
 async def register(
     body: RegisterRequest,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+) -> dict[str, Any]:
     """Register a new user.
 
     Returns 201 with tokens and user info on success.
@@ -167,8 +169,8 @@ async def register(
 async def verify_email(
     body: VerifyEmailRequest,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+) -> dict[str, Any]:
     """Verify email with token.
 
     Returns 200 on success, 400 on invalid/expired token.
@@ -194,9 +196,9 @@ async def verify_email(
 async def login(
     body: LoginRequest,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-    token_service=Depends(_get_token_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+    token_service: Any = Depends(_get_token_service),
+) -> dict[str, Any]:
     """Login with email and password.
 
     Returns tokens on success without MFA.
@@ -237,22 +239,22 @@ async def login(
         id=result["user_id"],
         email=result["email"],
     )
-    data = AuthTokensResponse(
+    tokens_data = AuthTokensResponse(
         access_token=result["access_token"],
         refresh_token=result["refresh_token"],
         user=user_data,
     )
-    return _success_response(data.model_dump(), request)
+    return _success_response(tokens_data.model_dump(), request)
 
 
 @router.post("/mfa/verify")
 async def mfa_verify(
     body: MFAVerifyRequest,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-    mfa_service=Depends(_get_mfa_service),  # type: ignore[no-untyped-def]
-    token_service=Depends(_get_token_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+    mfa_service: Any = Depends(_get_mfa_service),
+    token_service: Any = Depends(_get_token_service),
+) -> dict[str, Any]:
     """Verify MFA code after login.
 
     Returns full tokens on success, 401 on failure.
@@ -325,9 +327,9 @@ async def mfa_verify(
 @router.post("/mfa/setup")
 async def mfa_setup(
     request: Request,
-    current_user: dict = Depends(get_current_user),
-    mfa_service=Depends(_get_mfa_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    current_user: dict[str, Any] = Depends(get_current_user),
+    mfa_service: Any = Depends(_get_mfa_service),
+) -> dict[str, Any]:
     """Set up MFA for the authenticated user.
 
     Returns secret, provisioning URI, and backup codes.
@@ -360,9 +362,9 @@ async def mfa_setup(
 async def mfa_setup_confirm(
     body: MFASetupConfirmRequest,
     request: Request,
-    current_user: dict = Depends(get_current_user),
-    mfa_service=Depends(_get_mfa_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    current_user: dict[str, Any] = Depends(get_current_user),
+    mfa_service: Any = Depends(_get_mfa_service),
+) -> dict[str, Any]:
     """Confirm MFA setup with a TOTP code.
 
     Returns 200 on success, 400 on invalid code.
@@ -390,9 +392,9 @@ async def mfa_setup_confirm(
 async def refresh(
     body: RefreshTokenRequest,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-    token_service=Depends(_get_token_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+    token_service: Any = Depends(_get_token_service),
+) -> dict[str, Any]:
     """Refresh access token using refresh token.
 
     Returns new token pair on success, 401 on invalid token.
@@ -454,8 +456,8 @@ async def refresh(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     request: Request,
-    current_user: dict = Depends(get_current_user),
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
+    current_user: dict[str, Any] = Depends(get_current_user),
+    auth_service: Any = Depends(_get_auth_service),
 ) -> None:
     """Logout and invalidate the refresh token.
 
@@ -483,8 +485,8 @@ async def logout(
 async def password_reset_request(
     body: PasswordResetRequestModel,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+) -> dict[str, Any]:
     """Request a password reset.
 
     Always returns 200 (silent success to prevent email enumeration).
@@ -498,8 +500,8 @@ async def password_reset_request(
 async def password_reset_confirm(
     body: PasswordResetConfirmRequest,
     request: Request,
-    auth_service=Depends(_get_auth_service),  # type: ignore[no-untyped-def]
-) -> dict:
+    auth_service: Any = Depends(_get_auth_service),
+) -> dict[str, Any]:
     """Confirm password reset with token and new password.
 
     Returns 200 on success, 400 on invalid/expired token.

@@ -5,6 +5,7 @@ It is conditionally registered ONLY when APP_ENV=test.
 """
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -26,7 +27,7 @@ async def _get_db_session():  # type: ignore[no-untyped-def]
 @router.get("/verification-token")
 async def get_verification_token(
     email: str = Query(..., description="Email address to look up"),
-    session=Depends(_get_db_session),  # type: ignore[no-untyped-def]
+    session: Any = Depends(_get_db_session),
 ) -> dict[str, str]:
     """Return the email verification token for a given email.
 

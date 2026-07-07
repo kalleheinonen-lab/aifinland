@@ -142,7 +142,7 @@ class MFAService:
 
         # Store encrypted secret and hashed backup codes (MFA not yet enabled)
         user.mfa_secret = _encrypt_secret(secret)
-        user.mfa_backup_codes = hashed_codes
+        user.mfa_backup_codes = hashed_codes  # type: ignore[assignment]
         user.mfa_enabled = False
         await self._user_repo.update(user)
 
@@ -213,12 +213,12 @@ class MFAService:
             return True
 
         # Fall back to backup codes
-        backup_codes: list[str] = user.mfa_backup_codes or []
+        backup_codes: list[str] = user.mfa_backup_codes or []  # type: ignore[assignment]
         for i, hashed in enumerate(backup_codes):
             if _verify_backup_code(code, hashed):
                 # Consume the backup code (remove from list)
                 remaining = backup_codes[:i] + backup_codes[i + 1 :]
-                user.mfa_backup_codes = remaining
+                user.mfa_backup_codes = remaining  # type: ignore[assignment]
                 await self._user_repo.update(user)
                 logger.info(
                     "MFA verified via backup code: user_id=%s, remaining=%d",

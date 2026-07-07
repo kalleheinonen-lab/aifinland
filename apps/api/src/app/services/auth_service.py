@@ -245,7 +245,7 @@ class AuthService:
         self._session_service.create_session(user_id, new_refresh)
 
         org_id = str(user.organization_id) if user.organization_id else None
-        roles = user.roles if isinstance(user.roles, list) else []
+        roles: list[str] = user.roles if isinstance(user.roles, list) else []
         access_token = self._token_service.create_access_token(
             user_id=str(user.id),
             org_id=org_id,
@@ -341,7 +341,7 @@ class AuthService:
     def _issue_tokens(self, user: User) -> dict[str, Any]:
         """Issue access and refresh tokens for a user."""
         org_id = str(user.organization_id) if user.organization_id else None
-        roles = user.roles if isinstance(user.roles, list) else []
+        roles: list[str] = user.roles if isinstance(user.roles, list) else []
 
         access_token = self._token_service.create_access_token(
             user_id=str(user.id),

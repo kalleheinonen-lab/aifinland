@@ -5,6 +5,7 @@ and returns user payload. Enforces MFA setup requirement for admin roles.
 """
 
 import logging
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -31,7 +32,7 @@ async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     token_service: TokenService = Depends(_get_token_service),
-) -> dict:
+) -> dict[str, Any]:
     """Validate JWT and return user payload.
 
     Returns:
