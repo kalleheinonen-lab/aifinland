@@ -250,6 +250,7 @@ class AuthService:
             user_id=str(user.id),
             org_id=org_id,
             roles=roles,
+            mfa_enabled=user.mfa_enabled,
         )
 
         logger.info("Token refreshed for user_id=%s", user_id)
@@ -321,6 +322,22 @@ class AuthService:
         logger.info("Password reset confirmed: user_id=%s", user.id)
         return True
 
+    async def issue_tokens_for_user(self, user_id: str) -> dict[str, Any]:
+        """Look up a user by ID and issue tokens for them.
+
+        Used after MFA verification to issue full tokens given only a user_id.
+
+        Returns:
+            Dict with access_token, refresh_token, and user info.
+
+        Raises:
+            InvalidTokenError: If the user is not found.
+        """
+        user = await self._user_repo.find_by_id(uuid.UUID(user_id))
+        if user is None:
+            raise InvalidTokenError("User not found")
+        return self._issue_tokens(user)
+
     def _issue_tokens(self, user: User) -> dict[str, Any]:
         """Issue access and refresh tokens for a user."""
         org_id = str(user.organization_id) if user.organization_id else None
@@ -330,6 +347,7 @@ class AuthService:
             user_id=str(user.id),
             org_id=org_id,
             roles=roles,
+            mfa_enabled=user.mfa_enabled,
         )
         refresh_token = self._token_service.create_refresh_token()
         self._session_service.create_session(str(user.id), refresh_token)

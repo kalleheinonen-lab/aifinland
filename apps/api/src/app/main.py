@@ -6,7 +6,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-REQUIRED_ENV_VARS: list[str] = []
+from app.middleware.cors import add_cors_middleware
+from app.routers.auth import router as auth_router
+
+REQUIRED_ENV_VARS: list[str] = ["CORS_ALLOWED_ORIGINS"]
 
 
 @asynccontextmanager
@@ -21,6 +24,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="AI Finland API", lifespan=lifespan)
+
+# Add CORS middleware (reads CORS_ALLOWED_ORIGINS from env)
+if os.environ.get("CORS_ALLOWED_ORIGINS"):
+    add_cors_middleware(app)
+
+# Register routers
+app.include_router(auth_router)
 
 
 @app.get("/health")

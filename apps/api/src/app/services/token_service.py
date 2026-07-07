@@ -46,16 +46,18 @@ class TokenService:
         user_id: str,
         org_id: str | None = None,
         roles: list[str] | None = None,
+        mfa_enabled: bool = False,
     ) -> str:
         """Create an RS256-signed JWT access token.
 
-        Payload includes: sub, org, roles, exp, jti, iat.
+        Payload includes: sub, org, roles, mfa_enabled, exp, jti, iat.
         """
         now = datetime.now(UTC)
         payload: dict[str, Any] = {
             "sub": user_id,
             "org": org_id,
             "roles": roles or [],
+            "mfa_enabled": mfa_enabled,
             "exp": now + ACCESS_TOKEN_EXPIRY,
             "iat": now,
             "jti": str(uuid.uuid4()),
