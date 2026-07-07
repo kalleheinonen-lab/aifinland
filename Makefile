@@ -1,24 +1,19 @@
 .PHONY: install lint typecheck test build ci
 
 install:
-	cd apps/web && pnpm install
-	cd apps/api && pip install -r requirements.txt
+	pip install -e '.[dev]'
 
 lint:
-	cd apps/web && pnpm run lint
-	cd apps/api && python -m ruff check .
+	ruff check .
 
 typecheck:
-	cd apps/web && pnpm run typecheck
-	cd apps/api && python -m mypy src/
+	mypy src/
 
 test:
-	cd apps/web && pnpm run test
-	cd apps/api && pytest
+	pytest
 
 build:
-	cd apps/web && pnpm run build
-	cd apps/api && echo 'no build step'
+	@echo 'no build artifact'
 
 ci: install lint typecheck test build
 	@echo "CI passed"
