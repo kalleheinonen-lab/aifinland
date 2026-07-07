@@ -25,6 +25,7 @@ from app.schemas.auth import (
     PasswordResetRequestModel,
     RefreshTokenRequest,
     RegisterRequest,
+    ResendVerificationEmailRequest,
     UserResponse,
     VerifyEmailRequest,
 )
@@ -190,6 +191,21 @@ async def verify_email(
         )
 
     return _success_response({"verified": True}, request)
+
+
+@router.post("/verify-email/resend")
+async def resend_verification_email(
+    body: ResendVerificationEmailRequest,
+    request: Request,
+    auth_service: Any = Depends(_get_auth_service),
+) -> dict[str, Any]:
+    """Resend the email verification link.
+
+    Always returns 200 (silent success to prevent email enumeration).
+    """
+    await auth_service.resend_verification_email(body.email)
+    msg = "If the email exists and is unverified, a new verification link was sent"
+    return _success_response({"message": msg}, request)
 
 
 @router.post("/login")

@@ -171,3 +171,10 @@ export function confirmPasswordReset(input: PasswordResetConfirmInput): Promise<
     body: JSON.stringify(input),
   });
 }
+
+export function resendVerificationEmail(email: string): Promise<{ message: string }> {
+  return request("/v1/auth/verify-email/resend", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
