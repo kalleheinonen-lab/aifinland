@@ -1,0 +1,18 @@
+# BuildKit per-Dockerfile .dockerignore (resolved relative to the Dockerfile).
+# Effective when building with repo root as context:
+#   docker build -f apps/web/Dockerfile .
+# Excludes large/sensitive paths to keep the build context lean and prevent
+# .env files from leaking into image layers.
+node_modules
+apps/web/node_modules
+.next
+apps/web/.next
+.git
+.env*
+apps/web/.env*
+coverage
+apps/web/coverage
+dist
+apps/web/dist
+*.log
+.DS_Store
