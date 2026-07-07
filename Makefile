@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test build ci
+.PHONY: install lint typecheck test check-rls build ci
 
 install:
 	pip install -e '.[dev]'
@@ -12,8 +12,11 @@ typecheck:
 test:
 	pytest
 
+check-rls:
+	python scripts/check_rls_coverage.py
+
 build:
 	@echo 'no build artifact'
 
-ci: install lint typecheck test build
+ci: install lint typecheck test check-rls build
 	@echo "CI passed"
