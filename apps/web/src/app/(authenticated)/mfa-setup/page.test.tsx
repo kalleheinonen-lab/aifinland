@@ -282,6 +282,52 @@ describe("MfaSetupPage", () => {
     expect(continueButton).not.toBeDisabled();
   });
 
+  it("shows error message when refreshAuth fails during handleComplete", async () => {
+    const user = userEvent.setup();
+    mockGetMfaSetup.mockResolvedValueOnce({
+      provisioningUri: "otpauth://totp/test?secret=ABCDEF",
+      secret: "ABCDEF",
+    });
+    mockConfirmMfaSetup.mockResolvedValueOnce({
+      backupCodes: ["code1", "code2"],
+    });
+    // AC: refreshAuth rejects → error shown, router.push NOT called
+    mockRefreshAuth.mockRejectedValueOnce(new Error("Network error"));
+
+    render(<MfaSetupPage />);
+
+    await user.click(screen.getByRole("button", { name: "Get Started" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument()
+    );
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const input = screen.getByLabelText("Verification Code");
+    await user.type(input, "123456");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("code1")).toBeInTheDocument()
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "I have saved my backup codes" });
+    await user.click(checkbox);
+    await user.click(screen.getByRole("button", { name: "Continue to Dashboard" }));
+
+    // AC: error message is displayed to the user
+    await waitFor(() => {
+      expect(
+        screen.getByText("Failed to complete setup. Please try again.")
+      ).toBeInTheDocument();
+    });
+
+    // AC: router.push('/') is NOT called when refreshAuth fails
+    expect(mockPush).not.toHaveBeenCalled();
+
+    // AC: user remains on the backup-codes step (can retry)
+    expect(screen.getByRole("button", { name: "Continue to Dashboard" })).toBeInTheDocument();
+  });
+
   it("redirects to dashboard after completing setup", async () => {
     const user = userEvent.setup();
     mockGetMfaSetup.mockResolvedValueOnce({

@@ -123,8 +123,16 @@ export default function MfaSetupPage() {
   }, [backupCodes]);
 
   const handleComplete = useCallback(async () => {
-    await refreshAuth();
-    router.push("/");
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await refreshAuth();
+      router.push("/");
+    } catch {
+      setError("Failed to complete setup. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [refreshAuth, router]);
 
   const STEP_LABELS: Record<SetupStep, string> = {
@@ -410,6 +418,21 @@ export default function MfaSetupPage() {
               Save Your Backup Codes
             </h1>
 
+            {error && (
+              <div
+                className="mb-md rounded-md px-md py-sm"
+                style={{ backgroundColor: "#fef2f2" }}
+                role="alert"
+              >
+                <span
+                  className="text-[14px]"
+                  style={{ color: "#DC2626" }}
+                >
+                  {error}
+                </span>
+              </div>
+            )}
+
             {/* Warning banner */}
             <div
               className="mb-md flex items-start gap-sm rounded-md px-md py-sm"
@@ -517,10 +540,10 @@ export default function MfaSetupPage() {
 
             <button
               onClick={handleComplete}
-              disabled={!savedCodes}
+              disabled={!savedCodes || isSubmitting}
               className="w-full rounded-md bg-primary px-md py-sm text-[14px] font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
             >
-              Continue to Dashboard
+              {isSubmitting ? "Completing setup..." : "Continue to Dashboard"}
             </button>
           </div>
         )}
