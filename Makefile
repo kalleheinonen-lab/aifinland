@@ -10,7 +10,7 @@ lint:
 
 typecheck:
 	cd apps/web && pnpm run typecheck
-	cd apps/api && python -m mypy src/
+	cd apps/api && python -m mypy src/app/
 
 test:
 	cd apps/web && pnpm run test
