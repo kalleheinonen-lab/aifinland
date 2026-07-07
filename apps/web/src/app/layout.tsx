@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Finland",
+  title: "AI Finland Platform",
   icons: {
     icon: "/favicon.ico",
   },
