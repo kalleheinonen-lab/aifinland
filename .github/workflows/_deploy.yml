@@ -1,0 +1,54 @@
+name: Deploy to Environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: "Target environment (dev, stg, prod)"
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.UKS_KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Apply Kubernetes manifests (base)
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: kubectl apply -f k8s/base/
+
+      - name: Apply Kubernetes manifests (observability)
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: kubectl apply -f k8s/observability/
+
+      - name: Wait for API rollout
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: kubectl rollout status deployment/api -n ai-finland-app --timeout=300s
+
+      - name: Wait for Web rollout
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: kubectl rollout status deployment/web -n ai-finland-app --timeout=300s
+
+      - name: Smoke test
+        env:
+          KUBECONFIG: ~/.kube/config
+        run: |
+          API_IP=$(kubectl get svc api -n ai-finland-app -o jsonpath='{.spec.clusterIP}')
+          kubectl run smoke-test --rm -i --restart=Never \
+            --image=busybox:1.36 \
+            -n ai-finland-app \
+            -- wget -qO- --timeout=10 "http://${API_IP}:8000/health"

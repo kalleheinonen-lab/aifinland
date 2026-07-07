@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  build-api:
+    name: Build & Push API
+    uses: ./.github/workflows/_build-push.yml
+    with:
+      app: api
+      dockerfile: apps/api/Dockerfile
+    secrets: inherit
+
+  build-web:
+    name: Build & Push Web
+    uses: ./.github/workflows/_build-push.yml
+    with:
+      app: web
+      dockerfile: apps/web/Dockerfile
+    secrets: inherit
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: [build-api, build-web]
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: dev
+    secrets: inherit

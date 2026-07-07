@@ -1,0 +1,41 @@
+name: Build and Push
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+        description: "Application name (api or web)"
+      dockerfile:
+        required: true
+        type: string
+        description: "Path to Dockerfile relative to repo root"
+
+jobs:
+  build-push:
+    name: Build & Push ${{ inputs.app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to container registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${{ vars.REGISTRY_URL }} \
+            --username "${{ secrets.REGISTRY_USERNAME }}" \
+            --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f ${{ inputs.dockerfile }} \
+            --cache-from ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:latest \
+            --tag ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:${{ github.sha }} \
+            --tag ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:latest \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:${{ github.sha }}
+          docker push ${{ vars.REGISTRY_URL }}/${{ inputs.app }}:latest
