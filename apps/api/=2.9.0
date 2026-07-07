@@ -1,0 +1,10 @@
+Configuration of aws_configurator not loaded, configurator already loaded
+WARNING: Transient error StatusCode.UNAVAILABLE encountered while exporting logs to localhost:4317, retrying in 0.93s.
+
+[notice] A new release of pip is available: 25.0.1 -> 26.1.2
+[notice] To update, run: pip install --upgrade pip
+ERROR: Failed to export logs to localhost:4317, error code: StatusCode.UNAVAILABLE
+WARNING: Transient error StatusCode.UNAVAILABLE encountered while exporting logs to localhost:4317, retrying in 1.00s.
+ERROR: Failed to export logs to localhost:4317, error code: StatusCode.UNAVAILABLE
+WARNING: Transient error StatusCode.UNAVAILABLE encountered while exporting metrics to localhost:4317, retrying in 1.01s.
+ERROR: Failed to export metrics to localhost:4317, error code: StatusCode.UNAVAILABLE
