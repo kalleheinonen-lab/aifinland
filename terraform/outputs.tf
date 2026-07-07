@@ -56,12 +56,12 @@ output "valkey_port" {
 # -----------------------------------------------------------------------------
 output "object_storage_endpoint" {
   description = "Managed Object Storage S3-compatible endpoint URL"
-  value       = tolist(upcloud_managed_object_storage.main.endpoint)[0].domain_name
+  value       = [for e in upcloud_managed_object_storage.main.endpoint : e.domain_name if e.type == "private"][0]
 }
 
-output "object_storage_username" {
-  description = "Username of the app-service-account object storage user"
-  value       = upcloud_managed_object_storage_user.app.username
+output "object_storage_user_arn" {
+  description = "ARN of the app-service-account object storage user"
+  value       = upcloud_managed_object_storage_user.app.arn
 }
 
 # -----------------------------------------------------------------------------
