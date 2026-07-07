@@ -78,7 +78,7 @@ jobs:
         run: docker build --tag ai-finland/api:ci apps/api
 
       - name: Build Web Docker image
-        run: docker build --tag ai-finland/web:ci apps/web
+        run: docker build --tag ai-finland/web:ci -f apps/web/Dockerfile .
 
   terraform-validate:
     name: Terraform validate
