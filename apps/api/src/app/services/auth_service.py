@@ -286,6 +286,29 @@ class AuthService:
         await self._user_repo.update(user)
         logger.info("Password reset requested: user_id=%s", user.id)
 
+    async def resend_verification_email(self, email: str) -> None:
+        """Resend the email verification link.
+
+        Generates a fresh token with 24h expiry and stores it on the user record.
+        Silent success for unknown emails or already-verified accounts (prevents enumeration).
+        """
+        user = await self._user_repo.find_by_email(email)
+        if user is None:
+            # Silent success to prevent email enumeration
+            return
+
+        if user.email_verified:
+            # Silent success -- don't reveal that the email is already verified
+            return
+
+        verification_token = secrets.token_urlsafe(32)
+        user.email_verification_token = verification_token
+        user.email_verification_expires_at = (
+            datetime.now(UTC) + EMAIL_VERIFICATION_EXPIRY
+        )
+        await self._user_repo.update(user)
+        logger.info("Verification email resent: user_id=%s", user.id)
+
     async def confirm_password_reset(
         self, token: str, new_password: str
     ) -> bool:

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { verifyEmail, requestPasswordReset, ApiRequestError } from "@/lib/api-client";
+import { verifyEmail, resendVerificationEmail, ApiRequestError } from "@/lib/api-client";
 
 type VerifyState = "loading" | "success" | "error";
 
@@ -44,7 +44,7 @@ function VerifyEmailPageContent() {
   async function handleResend() {
     if (!resendEmail) return;
     try {
-      await requestPasswordReset(resendEmail);
+      await resendVerificationEmail(resendEmail);
       setResendSent(true);
     } catch {
       // Silently handle - don't reveal if email exists

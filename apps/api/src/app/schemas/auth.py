@@ -102,6 +102,12 @@ class PasswordResetConfirmRequest(BaseModel):
         return validate_password_policy(v)
 
 
+class ResendVerificationEmailRequest(BaseModel):
+    """Resend verification email request."""
+
+    email: str = Field(min_length=1, max_length=320)
+
+
 # --- Response Models ---
 
 
