@@ -249,6 +249,65 @@ def test_ac9_entity_metadata_mixin_column_names() -> None:
     assert "deletedAt" not in column_keys
 
 
+# ---------------------------------------------------------------------------
+# AC-10: RLS CI gate -- every EntityMetadataMixin subclass exposes organization_id
+# ---------------------------------------------------------------------------
+
+
+def test_ac10_all_mixin_subclasses_expose_organization_id() -> None:
+    """AC-10: Every registered subclass of EntityMetadataMixin must expose
+    'organization_id' in __table__.columns.
+
+    This is the RLS CI gate: the check_rls_coverage script inspects
+    __table__.columns for 'organization_id' to determine which tables need
+    Row-Level Security policies.  If a model uses EntityMetadataMixin but
+    somehow loses the column (e.g. a bad override or rename), the RLS gate
+    would silently miss that table.
+
+    # kills: model that overrides organization_id with a differently-named
+    #        column, model that removes organization_id entirely, new model
+    #        added without the mixin column
+    """
+    import app.db.models  # noqa: F401  (side-effect: registers all concrete models)
+    from app.db.mixins import EntityMetadataMixin
+
+    def _all_subclasses(cls: type) -> list[type]:
+        """Recursively collect all subclasses (handles multi-level inheritance)."""
+        result: list[type] = []
+        for sub in cls.__subclasses__():
+            result.append(sub)
+            result.extend(_all_subclasses(sub))
+        return result
+
+    mixin_subclasses = _all_subclasses(EntityMetadataMixin)
+
+    # Filter to concrete models that have a __table__ attribute (i.e. are
+    # fully mapped SQLAlchemy models, not abstract intermediate classes).
+    concrete_models = [cls for cls in mixin_subclasses if hasattr(cls, "__table__")]
+
+    # AC-10: there must be at least one concrete model using the mixin
+    assert concrete_models, (
+        "No concrete SQLAlchemy models found that inherit EntityMetadataMixin. "
+        "Ensure app.db.models is imported so all models are registered."
+    )
+
+    missing: list[str] = []
+    for model in concrete_models:
+        column_names = {col.name for col in model.__table__.columns}
+        if "organization_id" not in column_names:
+            missing.append(
+                f"{model.__name__} (table: {model.__table__.name!r}) -- "
+                f"columns: {sorted(column_names)}"
+            )
+
+    # AC-10: expect 'organization_id' present in every mixin model's table
+    assert not missing, (
+        "The following EntityMetadataMixin subclasses are missing 'organization_id' "
+        "in __table__.columns -- the RLS CI gate would silently skip them:\n"
+        + "\n".join(f"  - {m}" for m in missing)
+    )
+
+
 def test_ac9_entity_metadata_mixin_no_duplicate_fk_constraint_names() -> None:
     """AC-9: Two models using EntityMetadataMixin must not produce duplicate FK constraint names.
 
