@@ -1,16 +1,19 @@
 """Tests for MFAService: TOTP setup, confirmation, verification, and backup codes.
 
 # kills: wrong TOTP accepted, backup code reuse allowed, MFA enabled without
-# confirmation, admin role bypasses MFA requirement, plaintext secret stored.
+# confirmation, admin role bypasses MFA requirement, plaintext secret stored,
+# TOTP replay accepted within the valid window.
 
 Security invariants tested:
 - Secrets are stored encrypted (Fernet), never in plaintext.
 - Backup codes are stored as bcrypt hashes, never in plaintext.
 - A backup code can only be used once.
 - MFA is not enabled until the user confirms with a valid TOTP code.
+- TOTP codes are single-use: replay within the valid window is rejected (RFC 6238 §5.2).
 """
 
 import uuid
+from typing import Any
 
 import pyotp
 import pytest
@@ -36,6 +39,27 @@ from app.services.mfa_service import (
 
 # --- Test Fernet key (generated once for the test suite) ---
 TEST_MFA_KEY = Fernet.generate_key().decode("utf-8")
+
+
+# --- In-memory Valkey stub for tests ---
+
+
+class FakeValkeyClient:
+    """In-memory stub implementing the ValkeyClient protocol for tests."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, str] = {}
+
+    def set(self, name: str, value: str, ex: int | None = None) -> Any:
+        self._store[name] = value
+        return True
+
+    def get(self, name: str) -> Any:
+        return self._store.get(name)
+
+    def clear(self) -> None:
+        """Reset all stored keys (used between tests)."""
+        self._store.clear()
 
 
 # --- Fixtures ---
@@ -81,9 +105,15 @@ def user_repo(async_session: AsyncSession) -> UserRepository:
 
 
 @pytest.fixture
-def mfa_service(user_repo: UserRepository) -> MFAService:
-    """Create an MFAService with the test repository."""
-    return MFAService(user_repo=user_repo)
+def fake_valkey() -> FakeValkeyClient:
+    """Provide a fresh in-memory Valkey stub for each test."""
+    return FakeValkeyClient()
+
+
+@pytest.fixture
+def mfa_service(user_repo: UserRepository, fake_valkey: FakeValkeyClient) -> MFAService:
+    """Create an MFAService with the test repository and in-memory Valkey stub."""
+    return MFAService(user_repo=user_repo, valkey_client=fake_valkey)
 
 
 @pytest.fixture
@@ -365,6 +395,111 @@ class TestMFAVerification:
         """verify_mfa returns False when no MFA secret is stored."""
         result = await mfa_service.verify_mfa(str(test_user.id), "123456")
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_ac_replay_same_totp_code_rejected_on_second_use(
+        self,
+        mfa_service: MFAService,
+        mfa_enabled_user,
+        fake_valkey: FakeValkeyClient,
+    ) -> None:
+        """AC-replay: A valid TOTP code cannot be used twice within the valid window.
+
+        RFC 6238 §5.2 requires each OTP be used at most once.
+        # kills: replay check missing, timecode not stored, TTL too short
+        """
+        user, secret, _ = mfa_enabled_user
+        totp = pyotp.TOTP(secret)
+        valid_code = totp.now()
+
+        # First use: expect True
+        first_result = await mfa_service.verify_mfa(str(user.id), valid_code)
+        # AC-replay: first use of a valid TOTP code must succeed
+        assert first_result is True
+
+        # Second use of the same code within the same window: expect False (replay)
+        second_result = await mfa_service.verify_mfa(str(user.id), valid_code)
+        # AC-replay: replay of the same TOTP code must be rejected
+        assert second_result is False
+
+    @pytest.mark.asyncio
+    async def test_ac_replay_different_user_same_code_not_blocked(
+        self,
+        user_repo: UserRepository,
+        fake_valkey: FakeValkeyClient,
+    ) -> None:
+        """AC-replay: Replay protection is per-user.
+
+        The same code used by user A must not block user B.
+        # kills: global key without user_id, cross-user replay false positive
+        """
+        # Create two users with the SAME TOTP secret (edge case)
+        user_a = await user_repo.create(
+            email="replay_user_a@example.com",
+            password_hash="$2b$12$fakehash",
+            display_name="Replay User A",
+        )
+        user_b = await user_repo.create(
+            email="replay_user_b@example.com",
+            password_hash="$2b$12$fakehash",
+            display_name="Replay User B",
+        )
+
+        secret = pyotp.random_base32()
+        from app.services.mfa_service import _encrypt_secret
+
+        encrypted = _encrypt_secret(secret)
+        user_a.mfa_secret = encrypted
+        user_a.mfa_enabled = True
+        user_b.mfa_secret = encrypted
+        user_b.mfa_enabled = True
+        await user_repo.update(user_a)
+        await user_repo.update(user_b)
+
+        svc = MFAService(user_repo=user_repo, valkey_client=fake_valkey)
+        totp = pyotp.TOTP(secret)
+        valid_code = totp.now()
+
+        # User A uses the code first
+        result_a = await svc.verify_mfa(str(user_a.id), valid_code)
+        # AC-replay: user A's first use must succeed
+        assert result_a is True
+
+        # User B uses the same code: must NOT be blocked (different user)
+        result_b = await svc.verify_mfa(str(user_b.id), valid_code)
+        # AC-replay: user B is a different user; same code must be accepted
+        assert result_b is True
+
+    @pytest.mark.asyncio
+    async def test_ac_replay_totp_accepted_after_cache_cleared(
+        self,
+        mfa_service: MFAService,
+        mfa_enabled_user,
+        fake_valkey: FakeValkeyClient,
+    ) -> None:
+        """AC-replay: After the Valkey TTL expires (simulated by clearing cache),
+        a new code from the same window is accepted again.
+
+        This verifies the TTL-based expiry path: once the cache entry is gone,
+        the timecode is no longer considered used.
+        # kills: permanent blocking instead of TTL-based expiry
+        """
+        user, secret, _ = mfa_enabled_user
+        totp = pyotp.TOTP(secret)
+        valid_code = totp.now()
+
+        # First use succeeds
+        first_result = await mfa_service.verify_mfa(str(user.id), valid_code)
+        assert first_result is True
+
+        # Simulate TTL expiry by clearing the Valkey store
+        fake_valkey.clear()
+
+        # After expiry, the same code (same timecode) is accepted again
+        # (in production this would only happen after 90s when the window has passed)
+        after_expiry_result = await mfa_service.verify_mfa(str(user.id), valid_code)
+        # AC-replay: after cache expiry, the timecode is no longer blocked
+        assert after_expiry_result is True
 
 
 # --- Role-Based MFA Requirement Tests ---

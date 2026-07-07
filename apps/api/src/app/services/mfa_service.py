@@ -4,18 +4,21 @@ Security invariants:
 - MFA secrets stored encrypted with Fernet symmetric encryption.
 - Backup codes stored as bcrypt hashes (cost 12).
 - Credentials (secrets, backup codes in plaintext) NEVER logged.
+- TOTP codes are single-use: each timecode is tracked in Valkey (RFC 6238 §5.2).
 """
 
 import logging
 import secrets
 import string
 import uuid
+from datetime import datetime, timedelta
+from typing import Any, Protocol
 
 import bcrypt
 import pyotp
 from cryptography.fernet import Fernet, InvalidToken
 
-from app.config import get_mfa_encryption_key
+from app.config import get_mfa_encryption_key, get_valkey_url
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
@@ -35,8 +38,23 @@ TOTP_ISSUER = "AI Finland"
 # TOTP window tolerance (1 = accept 1 step before/after current)
 TOTP_VALID_WINDOW = 1
 
+# TOTP step duration in seconds (RFC 6238 default)
+TOTP_STEP_SECONDS = 30
+
+# TTL for used-TOTP cache entries: covers the full valid window (step * (2*window + 1))
+# With window=1: 3 steps × 30s = 90s ensures every accepted timecode is tracked
+# until it can no longer be accepted.
+TOTP_REPLAY_TTL_SECONDS = TOTP_STEP_SECONDS * (2 * TOTP_VALID_WINDOW + 1)
+
 # Roles that require MFA
 MFA_REQUIRED_ROLES = {"admin", "super_admin"}
+
+
+class ValkeyClient(Protocol):
+    """Protocol for Valkey client operations used by MFAService."""
+
+    def set(self, name: str, value: str, ex: int | None = None) -> Any: ...  # noqa: E704
+    def get(self, name: str) -> Any: ...  # noqa: E704
 
 
 class MFAError(Exception):
@@ -100,10 +118,37 @@ class MFAService:
 
     Manages MFA setup, confirmation, and verification for users.
     Secrets are Fernet-encrypted at rest; backup codes are bcrypt-hashed.
+    TOTP codes are single-use: each accepted timecode is recorded in Valkey
+    with a TTL of TOTP_REPLAY_TTL_SECONDS to prevent replay attacks (RFC 6238 §5.2).
     """
 
-    def __init__(self, user_repo: UserRepository) -> None:
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        valkey_client: ValkeyClient | None = None,
+    ) -> None:
         self._user_repo = user_repo
+        if valkey_client is not None:
+            self._valkey: ValkeyClient = valkey_client
+        else:
+            import valkey as valkey_lib
+
+            url = get_valkey_url()
+            self._valkey = valkey_lib.from_url(url)  # type: ignore[no-untyped-call]
+
+    def _totp_used_key(self, user_id: str, timecode: int) -> str:
+        """Build the Valkey key for a used TOTP timecode."""
+        return f"totp_used:{user_id}:{timecode}"
+
+    def _is_totp_replayed(self, user_id: str, timecode: int) -> bool:
+        """Return True if this timecode has already been used (replay detected)."""
+        key = self._totp_used_key(user_id, timecode)
+        return self._valkey.get(key) is not None
+
+    def _mark_totp_used(self, user_id: str, timecode: int) -> None:
+        """Record a timecode as used in Valkey with TTL to prevent replay."""
+        key = self._totp_used_key(user_id, timecode)
+        self._valkey.set(key, "1", ex=TOTP_REPLAY_TTL_SECONDS)
 
     async def setup_mfa(self, user_id: str) -> dict[str, object]:
         """Begin MFA setup for a user.
@@ -192,6 +237,10 @@ class MFAService:
         Checks the code as a TOTP first. If that fails, checks against the
         stored backup codes. A matching backup code is consumed (removed).
 
+        TOTP codes are single-use per RFC 6238 §5.2: once a timecode is
+        accepted it is recorded in Valkey with a TTL of TOTP_REPLAY_TTL_SECONDS.
+        Any subsequent attempt with the same timecode is rejected as a replay.
+
         Returns:
             True if the code is valid, False otherwise.
         """
@@ -209,6 +258,31 @@ class MFAService:
 
         # Check TOTP code first
         if totp.verify(code, valid_window=TOTP_VALID_WINDOW):
+            # Identify the single timecode that actually matched.
+            # pyotp.verify() with valid_window=1 accepts offsets -1, 0, +1 from now.
+            # We check each offset with valid_window=0 (exact match only) to find
+            # the one step whose code equals the submitted value, then mark only
+            # that timecode used.  This avoids blocking the *next* legitimate step
+            # (T+1) when the user happened to submit a code from step T or T-1.
+            now = datetime.now()
+            current_timecode = totp.timecode(now)
+            matched_timecode = current_timecode  # fallback: current step
+            for offset in range(-TOTP_VALID_WINDOW, TOTP_VALID_WINDOW + 1):
+                shifted = now + timedelta(seconds=offset * TOTP_STEP_SECONDS)
+                if totp.verify(code, for_time=shifted, valid_window=0):
+                    matched_timecode = current_timecode + offset
+                    break
+
+            # Reject if this specific timecode was already used (replay attack)
+            if self._is_totp_replayed(user_id, matched_timecode):
+                logger.warning(
+                    "TOTP replay attack detected: user_id=%s", user_id
+                )
+                return False
+
+            # Mark only the matched timecode as used to prevent replay
+            self._mark_totp_used(user_id, matched_timecode)
+
             logger.info("MFA verified via TOTP: user_id=%s", user_id)
             return True
 
