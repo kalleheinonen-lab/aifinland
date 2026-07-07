@@ -4,13 +4,13 @@ install:
 	pip install -e '.[dev]'
 
 lint:
-	ruff check .
+	python -m ruff check .
 
 typecheck:
-	mypy src/
+	python -m mypy src/
 
 test:
-	pytest
+	python -m pytest
 
 check-rls:
 	python scripts/check_rls_coverage.py
