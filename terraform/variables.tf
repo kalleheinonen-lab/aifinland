@@ -31,3 +31,9 @@ variable "tags" {
     DataClassification = "confidential"
   }
 }
+
+variable "control_plane_ip_filter" {
+  description = "CIDR ranges allowed to reach the UKS API server. Default allows all (dev). Restrict to admin/CI CIDRs in prod."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
