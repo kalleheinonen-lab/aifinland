@@ -15,9 +15,9 @@ nodeSelector:
 # The Secret is populated by OpenBao injector from path:
 #   secret/data/ai-finland/observability/grafana
 admin:
-  existingSecret: grafana-admin-credentials
+  existingSecret: grafana-admin-credentials  #checkov:skip=CKV_SECRET_6: Kubernetes Secret name reference, not a credential -- actual secret is injected by OpenBao from secret/data/ai-finland/observability/grafana
   userKey: admin-user
-  passwordKey: admin-password
+  passwordKey: admin-password  #checkov:skip=CKV_SECRET_6: Kubernetes Secret key name reference, not a credential -- actual password is injected by OpenBao from secret/data/ai-finland/observability/grafana
 
 # Resource limits
 resources:
