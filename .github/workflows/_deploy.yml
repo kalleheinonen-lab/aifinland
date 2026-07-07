@@ -8,6 +8,9 @@ on:
         type: string
         description: "Target environment (dev, stg, prod)"
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}

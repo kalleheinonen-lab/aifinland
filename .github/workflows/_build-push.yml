@@ -12,6 +12,9 @@ on:
         type: string
         description: "Path to Dockerfile relative to repo root"
 
+permissions:
+  contents: read
+
 jobs:
   build-push:
     name: Build & Push ${{ inputs.app }}
