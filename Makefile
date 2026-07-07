@@ -6,7 +6,7 @@ install:
 
 lint:
 	cd apps/web && pnpm run lint
-	cd apps/api && ruff check .
+	cd apps/api && python -m ruff check .
 
 typecheck:
 	cd apps/web && pnpm run typecheck
